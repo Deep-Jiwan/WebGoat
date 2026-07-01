@@ -80,6 +80,9 @@ jobs:
       - name: Pull ZAP Docker image
         run: docker pull ghcr.io/zaproxy/zaproxy:stable
 
+      - name: Make workspace writable for ZAP container user
+        run: chmod -R a+w "${GITHUB_WORKSPACE}"
+
       - name: Run ZAP Automation Framework scan
         run: |
           docker run --rm \
