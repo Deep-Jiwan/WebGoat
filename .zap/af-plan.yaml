@@ -102,8 +102,6 @@ jobs:
   parameters:
     context: "webgoat"
     user: "zaptest"
-    attackStrength: "HIGH"
-    alertThreshold: "LOW"
     maxRuleDurationInMins: 10
     threadPerHost: 3
 
@@ -117,4 +115,4 @@ jobs:
   - high
   - medium
   - low
-  - informational
+  - info
