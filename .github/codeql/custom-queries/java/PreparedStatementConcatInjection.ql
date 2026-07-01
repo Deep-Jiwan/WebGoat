@@ -20,7 +20,6 @@
 import java
 import semmle.code.java.dataflow.TaintTracking
 import semmle.code.java.dataflow.FlowSources
-import DataFlow::PathGraph
 
 /**
  * The `sql` text argument of a call that ultimately runs a query: either the first argument to
@@ -53,6 +52,8 @@ module ConcatSqlConfig implements DataFlow::ConfigSig {
 }
 
 module Flow = TaintTracking::Global<ConcatSqlConfig>;
+
+import Flow::PathGraph
 
 from Flow::PathNode source, Flow::PathNode sink
 where Flow::flowPath(source, sink)
