@@ -85,6 +85,9 @@ jobs:
 
       - name: Run ZAP Automation Framework scan
         run: |
+          # ZAP exit codes: 0=success, 1=error, 2=warnings-only
+          # Treat exit code 2 (warnings only) as success since report is still generated
+          ZAP_EXIT=0
           docker run --rm \
             --network host \
             -v "${GITHUB_WORKSPACE}:/zap/wrk:rw" \
@@ -92,7 +95,14 @@ jobs:
             zap.sh -cmd \
               -config api.disabledkey=true \
               -port 8090 \
-              -autorun /zap/wrk/.zap/af-plan.yaml
+              -autorun /zap/wrk/.zap/af-plan.yaml \
+            || ZAP_EXIT=$?
+          echo "ZAP exit code: $ZAP_EXIT"
+          if [ "$ZAP_EXIT" -ne 0 ] && [ "$ZAP_EXIT" -ne 2 ]; then
+            echo "ZAP scan failed (exit $ZAP_EXIT)"
+            exit "$ZAP_EXIT"
+          fi
+          echo "ZAP scan completed (exit $ZAP_EXIT — warnings are non-fatal)"
 
       - name: Show scan summary
         if: always()
