@@ -1,0 +1,120 @@
+---
+env:
+  contexts:
+  - name: "webgoat"
+    urls:
+    - "http://localhost:8080/WebGoat"
+    includePaths:
+    - "http://localhost:8080/WebGoat.*"
+    excludePaths:
+    - "http://localhost:8080/WebGoat/logout.*"
+    - "http://localhost:9090/WebWolf.*"
+    authentication:
+      method: "form"
+      parameters:
+        loginPageUrl: "http://localhost:8080/WebGoat/login"
+        loginRequestUrl: "http://localhost:8080/WebGoat/login"
+        loginRequestBody: "username={%username%}&password={%password%}"
+      verification:
+        method: "response"
+        loggedInRegex: "\\Qwelcome.mvc\\E"
+        loggedOutRegex: "\\Qlogin\\E"
+        pollFrequency: 60
+        pollUnits: "requests"
+    sessionManagement:
+      method: "cookie"
+      parameters: {}
+    users:
+    - name: "zaptest"
+      credentials:
+        username: "zaptest"
+        password: "zaptest123"
+  parameters:
+    failOnError: false
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+- type: requestor
+  name: "Seed Key Lesson Endpoints"
+  parameters:
+    user: "zaptest"
+  requests:
+  - url: "http://localhost:8080/WebGoat/welcome.mvc"
+    method: "GET"
+  - url: "http://localhost:8080/WebGoat/attack"
+    method: "GET"
+  - url: "http://localhost:8080/WebGoat/service/lessoninfo.mvc"
+    method: "GET"
+  # SQL Injection lessons
+  - url: "http://localhost:8080/WebGoat/SqlInjection/attack6a"
+    method: "POST"
+    data: "query=SELECT+%2A+FROM+user_data+WHERE+first_name+%3D+%27%27+OR+%271%27%3D%271%27"
+  - url: "http://localhost:8080/WebGoat/SqlInjection/attack5a"
+    method: "POST"
+    data: "account=Smith"
+  - url: "http://localhost:8080/WebGoat/SqlInjection/attack8"
+    method: "POST"
+    data: "name=Smith&auth_tan=3SL99A"
+  # Path Traversal
+  - url: "http://localhost:8080/WebGoat/PathTraversal/random-picture"
+    method: "GET"
+  - url: "http://localhost:8080/WebGoat/PathTraversal/profile-upload"
+    method: "POST"
+    data: "fullName=test"
+  # XSS
+  - url: "http://localhost:8080/WebGoat/CrossSiteScripting/attack5a"
+    method: "POST"
+    data: "username=%3Cscript%3Ealert%281%29%3C%2Fscript%3E"
+  # XXE
+  - url: "http://localhost:8080/WebGoat/xxe/simple"
+    method: "POST"
+    data: "%3C%3Fxml+version%3D%221.0%22%3F%3E%3Ccomment%3E%3Ctext%3Etest%3C%2Ftext%3E%3C%2Fcomment%3E"
+  # JWT
+  - url: "http://localhost:8080/WebGoat/JWT/refresh/login"
+    method: "POST"
+    data: "user=Tom&password=cat"
+  - url: "http://localhost:8080/WebGoat/JWT/secret"
+    method: "POST"
+    data: "token=test"
+  # Insecure Deserialization
+  - url: "http://localhost:8080/WebGoat/Deserialization/task"
+    method: "POST"
+    data: "token=rO0ABXNyAC9vcmcuZHVtbXkuQ2hhaW5lZFRyYW5zZm9ybWVycy5mb28uRm9vVHJhbnNmb3JtZXJzAAAAAAAAAAECAAB4cA%3D%3D"
+  # Access Control / IDOR
+  - url: "http://localhost:8080/WebGoat/access-control/user-hash"
+    method: "GET"
+  # CSRF
+  - url: "http://localhost:8080/WebGoat/csrf/basic-get-flag"
+    method: "GET"
+
+- type: spider
+  name: "Traditional Spider (Authenticated)"
+  parameters:
+    context: "webgoat"
+    user: "zaptest"
+    maxDuration: 5
+    maxDepth: 10
+    maxChildren: 20
+
+- type: activeScan
+  name: "Active Scan (Authenticated, HIGH strength)"
+  parameters:
+    context: "webgoat"
+    user: "zaptest"
+    attackStrength: "HIGH"
+    alertThreshold: "LOW"
+    maxRuleDurationInMins: 10
+    threadPerHost: 3
+
+- type: report
+  name: "JSON Report"
+  parameters:
+    template: "traditional-json"
+    reportDir: "/zap/wrk"
+    reportFile: "zap-report.json"
+  risks:
+  - high
+  - medium
+  - low
+  - informational

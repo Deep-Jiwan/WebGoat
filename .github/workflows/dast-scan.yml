@@ -1,0 +1,120 @@
+name: "ZAP DAST Scan (WebGoat)"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dast-scan:
+    name: OWASP ZAP DAST Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          architecture: x64
+          cache: maven
+
+      - name: Build WebGoat (skip tests and style checks)
+        run: mvn --no-transfer-progress package -DskipTests -Dspotless.skip=true
+
+      - name: Start WebGoat in background
+        run: |
+          java \
+            --enable-native-access=ALL-UNNAMED \
+            --add-opens java.base/java.lang=ALL-UNNAMED \
+            --add-opens java.base/java.util=ALL-UNNAMED \
+            --add-opens java.base/java.lang.reflect=ALL-UNNAMED \
+            --add-opens java.desktop/java.beans=ALL-UNNAMED \
+            --add-opens java.base/sun.nio.ch=ALL-UNNAMED \
+            --add-opens java.base/java.io=ALL-UNNAMED \
+            -jar target/webgoat-2026.2-SNAPSHOT.jar \
+            --server.port=8080 \
+            -Dwebgoat.server.directory=/tmp/webgoat \
+            -Dwebgoat.user.directory=/tmp/webgoat \
+            > /tmp/webgoat.log 2>&1 &
+          echo "WebGoat started (PID $!)"
+
+      - name: Wait for WebGoat to be ready
+        run: |
+          echo "Waiting for WebGoat to start..."
+          for i in $(seq 1 36); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/WebGoat/login 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ]; then
+              echo "WebGoat is ready (HTTP $STATUS)"
+              break
+            fi
+            echo "Attempt $i/36: status=$STATUS, waiting 5s..."
+            sleep 5
+          done
+
+      - name: Register ZAP test user
+        run: |
+          echo "Registering user zaptest..."
+          RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "http://localhost:8080/WebGoat/register.mvc" \
+            -d "username=zaptest&password=zaptest123&matchingPassword=zaptest123" \
+            -L)
+          echo "Registration response: HTTP $RESP"
+
+      - name: Verify login works
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "http://localhost:8080/WebGoat/login" \
+            -d "username=zaptest&password=zaptest123")
+          echo "Login response: HTTP $STATUS"
+          if [ "$STATUS" = "302" ] || [ "$STATUS" = "200" ]; then
+            echo "Login successful"
+          else
+            echo "WARNING: unexpected login status $STATUS"
+            tail -50 /tmp/webgoat.log
+          fi
+
+      - name: Pull ZAP Docker image
+        run: docker pull ghcr.io/zaproxy/zaproxy:stable
+
+      - name: Run ZAP Automation Framework scan
+        run: |
+          docker run --rm \
+            --network host \
+            -v "${GITHUB_WORKSPACE}:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap.sh -cmd \
+              -config api.disabledkey=true \
+              -autorun /zap/wrk/.zap/af-plan.yaml
+
+      - name: Show scan summary
+        if: always()
+        run: |
+          if [ -f "zap-report.json" ]; then
+            echo "=== ZAP Scan Summary ==="
+            echo "HIGH:   $(jq '[.site[].alerts[] | select(.riskdesc | startswith(\"High\"))] | length' zap-report.json 2>/dev/null || echo unknown)"
+            echo "MEDIUM: $(jq '[.site[].alerts[] | select(.riskdesc | startswith(\"Medium\"))] | length' zap-report.json 2>/dev/null || echo unknown)"
+            echo "LOW:    $(jq '[.site[].alerts[] | select(.riskdesc | startswith(\"Low\"))] | length' zap-report.json 2>/dev/null || echo unknown)"
+          else
+            echo "No ZAP report found — listing workspace files:"
+            ls -la
+          fi
+
+      - name: Upload ZAP report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-dast-report
+          path: zap-report.json
+          if-no-files-found: warn
+
+      - name: Upload WebGoat startup log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webgoat-startup-log
+          path: /tmp/webgoat.log
+          if-no-files-found: warn
