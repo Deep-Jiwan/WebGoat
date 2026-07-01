@@ -87,6 +87,13 @@ jobs:
   # CSRF
   - url: "http://localhost:8080/WebGoat/csrf/basic-get-flag"
     method: "GET"
+  # Zip Slip (archive extraction path traversal)
+  - url: "http://localhost:8080/WebGoat/PathTraversal/zip-slip"
+    method: "POST"
+    data: "uploadedFileZipSlip=test"
+  # Weak cryptographic hash (MD5)
+  - url: "http://localhost:8080/WebGoat/crypto/hashing/md5"
+    method: "GET"
 
 - type: spider
   name: "Traditional Spider (Authenticated)"

@@ -33,7 +33,7 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: java-kotlin
-          queries: security-extended
+          queries: security-extended,./.github/codeql/custom-queries/java
 
       - name: Build with Maven (skip tests and style checks)
         run: mvn --no-transfer-progress package -DskipTests -Dspotless.skip=true
