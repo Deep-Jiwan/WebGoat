@@ -88,6 +88,7 @@ jobs:
             ghcr.io/zaproxy/zaproxy:stable \
             zap.sh -cmd \
               -config api.disabledkey=true \
+              -port 8090 \
               -autorun /zap/wrk/.zap/af-plan.yaml
 
       - name: Show scan summary
@@ -95,9 +96,9 @@ jobs:
         run: |
           if [ -f "zap-report.json" ]; then
             echo "=== ZAP Scan Summary ==="
-            echo "HIGH:   $(jq '[.site[].alerts[] | select(.riskdesc | startswith(\"High\"))] | length' zap-report.json 2>/dev/null || echo unknown)"
-            echo "MEDIUM: $(jq '[.site[].alerts[] | select(.riskdesc | startswith(\"Medium\"))] | length' zap-report.json 2>/dev/null || echo unknown)"
-            echo "LOW:    $(jq '[.site[].alerts[] | select(.riskdesc | startswith(\"Low\"))] | length' zap-report.json 2>/dev/null || echo unknown)"
+            echo "HIGH:   $(jq '[.site[].alerts[] | select(.riskdesc | startswith("High"))] | length' zap-report.json 2>/dev/null || echo unknown)"
+            echo "MEDIUM: $(jq '[.site[].alerts[] | select(.riskdesc | startswith("Medium"))] | length' zap-report.json 2>/dev/null || echo unknown)"
+            echo "LOW:    $(jq '[.site[].alerts[] | select(.riskdesc | startswith("Low"))] | length' zap-report.json 2>/dev/null || echo unknown)"
           else
             echo "No ZAP report found — listing workspace files:"
             ls -la
