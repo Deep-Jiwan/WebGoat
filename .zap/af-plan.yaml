@@ -93,6 +93,7 @@ jobs:
   parameters:
     context: "webgoat"
     user: "zaptest"
+    url: "http://localhost:8080/WebGoat/welcome.mvc"
     maxDuration: 5
     maxDepth: 10
     maxChildren: 20
